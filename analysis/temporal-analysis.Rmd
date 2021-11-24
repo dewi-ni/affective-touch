@@ -11,7 +11,7 @@ editor_options:
 
 Analysis of hbo and hbr data.
 
-```{r}
+```{r echo=FALSE, include=FALSE}
 library(tidyverse)
 library(data.table)
 library(dplyr)
@@ -27,14 +27,14 @@ library(readxl)
 - ASD IQ: [103,max], TD IQ: [min,137]
 - final sample: 33 TD, 33 ASD
 
-```{r}
+```{r echo=FALSE, include=FALSE}
 q_total <- read_xlsx("./data/score_total.xlsx",sheet = 1,col_types = c("numeric","numeric","text","numeric","text",rep("numeric",41)))
 nirs_info <- read_xlsx("./data/nirs_information.xlsx",col_types = c("text","numeric","numeric","numeric","date","numeric","text"))
 load("./output/run_hbo.Rdata")
 load("./output/run_hbr.Rdata")
 ```
 
-```{r}
+```{r echo=FALSE, collapse=TRUE, results='hold'}
 q_iq_sub <- q_total %>% 
   filter((group == 1 & (FSIQ <=143 & FSIQ >= 103)) | (group == 2 &(FSIQ <=137 & FSIQ >= 96))) %>% 
   filter(id_new != 5 & id_new != 2416 &  id_new!= 2 & id_new!= 121 & id_new!= 128 & id_new!= 23 & id_new!= 21 & id_new != 33) %>% 
@@ -71,7 +71,7 @@ cor.test(q_iq_sub$AQ,q_iq_sub$SPSRC_total)
 
 ## HBO only
 
-```{r}
+```{r echo=FALSE}
 hbo_tot <- run_hbo[q_iq_sub, on = "sub"] %>% 
   mutate(SPSRC_group = ifelse(SPSRC_total <= 403,"low", "high"),
          SPSRC_z_group = ifelse(SPSRC_total_z<=-2," <= -2 SD",ifelse(SPSRC_total_z <= -1,"-2 to -1 SD", ">= -1 SD")),
@@ -95,7 +95,7 @@ hbo_tot <- run_hbo[q_iq_sub, on = "sub"] %>%
 - right pSTS: channel 43 46
 - left pSTS: channel 20 23
 
-```{r}
+```{r echo=FALSE,message = FALSE, collapse=TRUE, results='hold'}
 # bilateral
 hbo_sts <- hbo_tot %>% 
   group_by(id,group,SPSRC_group,tactile_group,tac_over_group,tac_under_group,tac_seeking_group,
@@ -180,7 +180,7 @@ ggplot(data = mean_hbo_sts,aes(x = time,y=con_diff,color = as.factor(group)))+
 
 - left somatosensory cortex: channel 13 14 17 18 21
 
-```{r}
+```{r echo=FALSE,message = FALSE, collapse=TRUE, results='hold'}
 hbo_sm <- hbo_tot %>% 
   filter(channel == 13|channel == 17|channel == 14|channel ==18|channel == 21) %>% 
   mutate(time = time/3.47-2,response = response*1e06)
@@ -218,6 +218,6 @@ ggplot(data = mean_hbo_sm,aes(x = time,y=response,color = as.factor(tac_seeking_
 
 - pSTS
 
-```{r}
+```{r echo=FALSE, include=FALSE}
 
 ```
