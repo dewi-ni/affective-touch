@@ -32,6 +32,8 @@
 <script src="site_libs/navigation-1.1/tabsets.js"></script>
 <link href="site_libs/highlightjs-9.12.0/textmate.css" rel="stylesheet" />
 <script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<link href="site_libs/font-awesome-5.1.0/css/all.css" rel="stylesheet" />
+<link href="site_libs/font-awesome-5.1.0/css/v4-shims.css" rel="stylesheet" />
 
 <link rel="icon" href="https://github.com/workflowr/workflowr-assets/raw/master/img/reproducible.png">
 <!-- Add a small amount of space between sections. -->
@@ -262,7 +264,13 @@ $(document).ready(function () {
 </li>
       </ul>
       <ul class="nav navbar-nav navbar-right">
-        
+        <li>
+  <a href="https://github.com/dewi-ni/affective-touch">
+    <span class="fa fa-github"></span>
+     
+    Source code
+  </a>
+</li>
       </ul>
     </div><!--/.nav-collapse -->
   </div><!--/.container -->
@@ -328,16 +336,16 @@ This reproducible <a href="http://rmarkdown.rstudio.com">R Markdown</a> analysis
 <div class="panel panel-default">
 <div class="panel-heading">
 <p class="panel-title">
-<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRepositoryversionstrongahrefhttpsgithubcomdewiniaffectivetouchtree6269761280ba52af8170238b1e257c77ca8c2d33targetblank6269761a"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Repository version:</strong> <a href="https://github.com/dewi-ni/affective-touch/tree/6269761280ba52af8170238b1e257c77ca8c2d33" target="_blank">6269761</a> </a>
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRepositoryversionstrongahrefhttpsgithubcomdewiniaffectivetouchtreee47b778938bebca84b0cb75dc1e436b3a38ed176targetblanke47b778a"> <span class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> <strong>Repository version:</strong> <a href="https://github.com/dewi-ni/affective-touch/tree/e47b778938bebca84b0cb75dc1e436b3a38ed176" target="_blank">e47b778</a> </a>
 </p>
 </div>
-<div id="strongRepositoryversionstrongahrefhttpsgithubcomdewiniaffectivetouchtree6269761280ba52af8170238b1e257c77ca8c2d33targetblank6269761a" class="panel-collapse collapse">
+<div id="strongRepositoryversionstrongahrefhttpsgithubcomdewiniaffectivetouchtreee47b778938bebca84b0cb75dc1e436b3a38ed176targetblanke47b778a" class="panel-collapse collapse">
 <div class="panel-body">
 <p>
 Great! You are using Git for version control. Tracking code development and connecting the code version to the results is critical for reproducibility.
 </p>
 <p>
-The results in this page were generated with repository version <a href="https://github.com/dewi-ni/affective-touch/tree/6269761280ba52af8170238b1e257c77ca8c2d33" target="_blank">6269761</a>. See the <em>Past versions</em> tab to see a history of the changes made to the R Markdown and HTML files.
+The results in this page were generated with repository version <a href="https://github.com/dewi-ni/affective-touch/tree/e47b778938bebca84b0cb75dc1e436b3a38ed176" target="_blank">e47b778</a>. See the <em>Past versions</em> tab to see a history of the changes made to the R Markdown and HTML files.
 </p>
 <p>
 Note that you need to be careful to ensure that all relevant files for the analysis have been committed to Git prior to generating the results (you can use <code>wflow_publish</code> or <code>wflow_git_commit</code>). workflowr only checks the R Markdown file, but you know if there are other scripts or data files that it depends on. Below is the status of the Git repository when the results were generated:
@@ -348,7 +356,21 @@ Ignored files:
     Ignored:    .Rproj.user/
 
 Untracked files:
-    Untracked:  wflow/
+    Untracked:  output/run_hbr.Rdata
+    Untracked:  wflow/.Rprofile
+    Untracked:  wflow/.gitattributes
+    Untracked:  wflow/.gitignore
+    Untracked:  wflow/README.md
+    Untracked:  wflow/_workflowr.yml
+    Untracked:  wflow/analysis/tidy-temporal-nirs-data.Rmd
+    Untracked:  wflow/code/
+    Untracked:  wflow/data/
+    Untracked:  wflow/output/
+    Untracked:  wflow/wflow.Rproj
+
+Unstaged changes:
+    Modified:   code/statistical analysis.R
+    Modified:   output/run_hbo.Rdata
 
 </code></pre>
 <p>
@@ -361,9 +383,69 @@ Note that any generated files, e.g. HTML, png, CSS, etc., are not included in t
 <hr>
 </div>
 <div id="versions" class="tab-pane fade">
+
 <p>
-There are no past versions. Publish this analysis with <code>wflow_publish()</code> to start tracking its development.
+These are the previous versions of the repository in which changes were made to the R Markdown (<code>wflow/analysis/index.Rmd</code>) and HTML (<code>wflow/docs/index.html</code>) files. If you’ve configured a remote Git repository (see <code>?wflow_git_remote</code>), click on the hyperlinks in the table below to view the files as they were in that past version.
 </p>
+<div class="table-responsive">
+<table class="table table-condensed table-hover">
+<thead>
+<tr>
+<th>
+File
+</th>
+<th>
+Version
+</th>
+<th>
+Author
+</th>
+<th>
+Date
+</th>
+<th>
+Message
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+Rmd
+</td>
+<td>
+<a href="https://github.com/dewi-ni/affective-touch/blob/e47b778938bebca84b0cb75dc1e436b3a38ed176/wflow/analysis/index.Rmd" target="_blank">e47b778</a>
+</td>
+<td>
+<a href="mailto:niwei@ccl" class="email">niwei@ccl</a>
+</td>
+<td>
+2021-11-24
+</td>
+<td>
+wflow_publish(c("analysis/about.Rmd", "analysis/index.Rmd", "analysis/license.Rmd"))
+</td>
+</tr>
+<tr>
+<td>
+html
+</td>
+<td>
+<a href="https://rawcdn.githack.com/dewi-ni/affective-touch/8c1172e19dfa00079403e477fbb7092ff27cfe0b/wflow/docs/index.html" target="_blank">8c1172e</a>
+</td>
+<td>
+<a href="mailto:niwei@ccl" class="email">niwei@ccl</a>
+</td>
+<td>
+2021-11-24
+</td>
+<td>
+Build site.
+</td>
+</tr>
+</tbody>
+</table>
+</div>
 <hr>
 </div>
 </div>
