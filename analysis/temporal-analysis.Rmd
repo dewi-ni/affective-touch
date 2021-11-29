@@ -1,0 +1,330 @@
+---
+title: "temporal-analysis"
+author: "niwei@ccl"
+date: "2021-11-25"
+output: workflowr::wflow_html
+editor_options:
+  chunk_output_type: console
+---
+
+## Introduction
+
+Analysis of hbo and hbr data.
+
+```{r echo=FALSE, include=FALSE}
+library(tidyverse)
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(readxl)
+library(RColorBrewer)
+library(patchwork)
+```
+
+## load data and filter subjects
+
+- load questionnaire data, hbo, and hbr data
+- filter subjects from ASD and TD group to match IQ
+- exclude 5 subjects without nirs data and 2 subjects without SPSRC data
+- ASD IQ: [103,max], TD IQ: [min,137]
+- final sample: 33 TD, 33 ASD
+
+```{r echo=FALSE, include=FALSE}
+q_total <- read_xlsx("./data/score_total.xlsx",sheet = 1,col_types = c("numeric","numeric","text","numeric","text",rep("numeric",41)))
+nirs_info <- read_xlsx("./data/nirs_information.xlsx",col_types = c("text","numeric","numeric","numeric","date","numeric","text"))
+load("./output/run_hbo.Rdata")
+load("./output/run_hbr.Rdata")
+```
+
+```{r echo=FALSE, collapse=TRUE, results='hold'}
+q_iq_sub <- q_total %>% 
+  filter((group == 1 & (FSIQ <=143 & FSIQ >= 103)) | (group == 2 &(FSIQ <=137 & FSIQ >= 96))) %>% 
+  filter(id_new != 5 & id_new != 2416 &  id_new!= 2 & id_new!= 121 & id_new!= 128 & id_new!= 23 & id_new!= 21 & id_new != 33) %>% 
+  select(id_new,group,gender,name,age,FSIQ,AQ,SRS,forearm,hand,tactile,tactile_z,
+         SPSRC_total,SPSRC_total_z,seeking,seeking_z,underresponse,overresponse,stability,
+         tactile_over,tactile_under,tactile_seek) %>% 
+  rename(id = id_new) %>% 
+  as.data.table() %>% 
+  setkey(id)
+nirs_info <- nirs_info %>% 
+  select(id,file_name) %>% 
+  rename(sub = file_name) %>% 
+  as.data.table() %>% 
+  setkey(id)
+q_iq_sub <- nirs_info[q_iq_sub] %>% 
+  setkey(sub)
+
+q_iq_sub %>% pivot_longer(
+  cols = c(age:tactile, SPSRC_total),
+  names_to = "variable",
+  values_to = "value") %>% 
+  group_by(variable) %>% 
+  nest() %>% 
+  mutate(t_test = map(data, ~ t.test(value ~ group, data = .))) %>% 
+  mutate(t_test = map(t_test, broom::tidy)) %>% 
+  unnest(t_test) %>% 
+  select(-data)
+
+ggplot(data = q_iq_sub )+
+  geom_point(aes(x = AQ, y = SPSRC_total,color = as.factor(group)))+
+  scale_color_discrete(labels=c("ASD","TD"), aesthetics = c("color","fill"),type = c("#FF6666","#0099CC")) +
+  theme_bw()
+
+cor.test(q_iq_sub$AQ,q_iq_sub$SPSRC_total)
+```
+
+## HBO only
+
+```{r echo=FALSE}
+hbo_tot <- run_hbo[q_iq_sub, on = "sub"] %>% 
+  mutate(SPSRC_group = ifelse(SPSRC_total <= 403,"low", "high"),
+         SPSRC_z_group = ifelse(SPSRC_total_z<=-2," <= -2 SD",ifelse(SPSRC_total_z <= -1,"-2 to -1 SD", ">= -1 SD")),
+         tactile_z_group = ifelse(tactile_z<=-2," <= -2 SD",ifelse(tactile_z <= -1,"-2 to -1 SD", ">= -1 SD")),
+         seeking_z_group = ifelse(seeking_z<=-2," <= -2 SD",ifelse(seeking_z <= -1,"-2 to -1 SD", ">= -1 SD")),
+         tactile_group = ifelse(tactile <= 87,"low", "high"),
+         tac_over_group =ifelse(tactile_over <= 29,"low", "high"),
+         tac_under_group =ifelse(tactile_under <= 37,"low", "high"),
+         tac_seeking_group = ifelse(tactile_seek <= 19,"low", "high"),
+         seeking_group = ifelse(seeking <= 144,"low", "high"),
+         over_group = ifelse(overresponse <= 134,"low", "high"),
+         under_group = ifelse(underresponse <= 107,"low", "high"),
+         stab_group = ifelse(stability <= 24,"low", "high"))
+```
+
+## pSTS
+
+- compute condition difference: arm - palm
+- right pSTS: channel 43 46
+- left pSTS: channel 20 23
+
+```{r echo=FALSE,message = FALSE, collapse=TRUE, results='hold'}
+# bilateral
+hbo_sts <- hbo_tot %>% 
+  group_by(id,group,SPSRC_group,tactile_group,tac_over_group,tac_under_group,tac_seeking_group,
+           seeking_group,over_group,under_group,stab_group,channel,time) %>%
+  summarise(con_diff = 1e06*(response[which(con == "forearm")] - response[which(con == "hand")])) %>% 
+  #filter( channel == 20|channel == 23|channel == 43|channel == 46 | channel == 12| channel == 16 |channel == 39 | channel == 35) %>% 
+  filter( channel == 20|channel == 23|channel == 43|channel == 46) %>% 
+  mutate(time = time/3.47-2)
+
+mean_hbo_sts <- Rmisc::summarySE(data = hbo_sts,"con_diff",groupvars = c("time","group"),na.rm = T)
+
+bi_hbo <- ggplot(data = mean_hbo_sts,aes(x = time,y=con_diff,color = as.factor(group)))+
+  geom_line()+
+  #facet_wrap(~channel,scales = "free_y")+
+  geom_ribbon(aes(ymax = con_diff+se,ymin = con_diff-se,fill = as.factor(group)),alpha = 0.25,linetype=0)+
+  scale_color_discrete(labels=c("ASD","TD"), aesthetics = c("color","fill"),type = c("#FF6666","#0099CC")) +
+  scale_x_continuous(breaks = c(-2,0,2,4,6,8,10,12,14,16))+
+  scale_y_continuous(breaks = seq(-0.1,0.1,0.02))+
+  #geom_rect(aes(xmax = 40/3.47-5,xmin = 33/3.47-5,ymax = -0.088,ymin = -0.09),color = "yellow",linetype=0) +
+  geom_vline(aes(xintercept = 0))+
+  geom_vline(aes(xintercept = 6))+
+  labs(title = "Bilateral pSTS activation to arm vs palm",color = "Group",fill = "Group")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# right
+
+hbo_sts <- hbo_tot %>% 
+  group_by(id,group,SPSRC_group,tactile_group,tac_over_group,tac_under_group,tac_seeking_group,
+           seeking_group,over_group,under_group,stab_group,channel,time) %>%
+  summarise(con_diff = 1e06*(response[which(con == "forearm")] - response[which(con == "hand")])) %>% 
+  #filter( channel == 20|channel == 23|channel == 43|channel == 46 | channel == 12| channel == 16 |channel == 39 | channel == 35) %>% 
+  filter( channel == 43|channel == 46) %>% 
+  mutate(time = time/3.47-2)
+
+mean_hbo_sts <- Rmisc::summarySE(data = hbo_sts,"con_diff",groupvars = c("time","group"),na.rm = T)
+
+right_hbo <- ggplot(data = mean_hbo_sts,aes(x = time,y=con_diff,color = as.factor(group)))+
+  geom_line()+
+  #facet_wrap(~channel,scales = "free_y")+
+  geom_ribbon(aes(ymax = con_diff+se,ymin = con_diff-se,fill = as.factor(group)),alpha = 0.25,linetype=0)+
+  scale_color_discrete(labels=c("ASD","TD"), aesthetics = c("color","fill"),type = c("#FF6666","#0099CC")) +
+  scale_x_continuous(breaks = c(-2,0,2,4,6,8,10,12,14,16))+
+  scale_y_continuous(breaks = seq(-0.1,0.1,0.02))+
+  #geom_rect(aes(xmax = 40/3.47-5,xmin = 33/3.47-5,ymax = -0.088,ymin = -0.09),color = "yellow",linetype=0) +
+  geom_vline(aes(xintercept = 0))+
+  geom_vline(aes(xintercept = 6))+
+  labs(title = "Right pSTS activation to arm vs palm",color = "Group",fill = "Group")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+# left
+
+hbo_sts <- hbo_tot %>% 
+  group_by(id,group,SPSRC_group,tactile_group,tac_over_group,tac_under_group,tac_seeking_group,
+           seeking_group,over_group,under_group,stab_group,channel,time) %>%
+  summarise(con_diff = 1e06*(response[which(con == "forearm")] - response[which(con == "hand")])) %>% 
+  #filter( channel == 20|channel == 23|channel == 43|channel == 46 | channel == 12| channel == 16 |channel == 39 | channel == 35) %>% 
+  filter( channel == 20|channel == 23) %>% 
+  mutate(time = time/3.47-2)
+
+mean_hbo_sts <- Rmisc::summarySE(data = hbo_sts,"con_diff",groupvars = c("time","group"),na.rm = T)
+
+left_hbo <- ggplot(data = mean_hbo_sts,aes(x = time,y=con_diff,color = as.factor(group)))+
+  geom_line()+
+  #facet_wrap(~channel,scales = "free_y")+
+  geom_ribbon(aes(ymax = con_diff+se,ymin = con_diff-se,fill = as.factor(group)),alpha = 0.25,linetype=0)+
+  scale_color_discrete(labels=c("ASD","TD"), aesthetics = c("color","fill"),type = c("#FF6666","#0099CC")) +
+  scale_x_continuous(breaks = c(-2,0,2,4,6,8,10,12,14,16))+
+  scale_y_continuous(breaks = seq(-0.1,0.1,0.02))+
+  #geom_rect(aes(xmax = 40/3.47-5,xmin = 33/3.47-5,ymax = -0.088,ymin = -0.09),color = "yellow",linetype=0) +
+  geom_vline(aes(xintercept = 0))+
+  geom_vline(aes(xintercept = 6))+
+  labs(title = "Left pSTS activation to arm vs palm",color = "Group",fill = "Group")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+bi_hbo/left_hbo/right_hbo
+
+```
+
+## Somatosensory cortex
+
+- left somatosensory cortex: channel 13 14 17 18 21
+
+```{r echo=FALSE,message = FALSE, collapse=TRUE, results='hold'}
+hbo_sm <- hbo_tot %>% 
+  filter(channel == 13|channel == 17|channel == 14|channel ==18|channel == 21) %>% 
+  mutate(time = time/3.47-2,response = response*1e06)
+
+# group comparison
+mean_hbo_sm <- Rmisc::summarySE(data = hbo_sm,"response",groupvars = c("time","group"),na.rm = T)
+ggplot(data = mean_hbo_sm,aes(x = time,y=response,color = as.factor(group)))+
+  geom_line()+ 
+  geom_ribbon(aes(ymax = response+se,ymin = response-se,fill = as.factor(group)),alpha = 0.25,linetype=0)+
+  scale_color_discrete(labels=c("ASD","TD"), aesthetics = c("color","fill"),type = c("#FF6666","#0099CC")) +
+  scale_x_continuous(breaks = c(-2,0,2,4,6,8,10,12,14,16))+
+  scale_y_continuous(breaks = seq(-0.1,0.1,0.02))+
+  geom_vline(aes(xintercept = 0))+
+  geom_vline(aes(xintercept = 6))+
+  labs(title = "Left somatosensory cortex activation under both condition",color = "Group",fill = "Group")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# tactile seeking group
+mean_hbo_sm <- Rmisc::summarySE(data = hbo_sm,"response",groupvars = c("time","tac_seeking_group"),na.rm = T)
+ggplot(data = mean_hbo_sm,aes(x = time,y=response,color = as.factor(tac_seeking_group)))+
+  geom_line()+ 
+  #facet_wrap(~channel,scales = "free_y")+
+  geom_ribbon(aes(ymax = response+se,ymin = response-se,fill = as.factor(tac_seeking_group)),alpha = 0.25,linetype=0)+
+  scale_color_discrete(labels=c("Lower","Higher"), aesthetics = c("color","fill"),type =c("#6E7783","#77AAAD")) +
+  scale_x_continuous(breaks = c(-2,0,2,4,6,8,10,12,14,16))+
+  scale_y_continuous(breaks = seq(-0.1,0.1,0.02))+
+  geom_vline(aes(xintercept = 0))+
+  geom_vline(aes(xintercept = 6))+
+  labs(title = "Left somatosensory cortex activation under both condition",color = "Tactile seeking",fill = "Tactile seeking")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+## HBO and HBR
+
+- pSTS
+
+```{r echo=FALSE,message = FALSE, collapse=TRUE, results='hold'}
+hbr_tot <- run_hbr[q_iq_sub, on = "sub"] %>% 
+  mutate(SPSRC_group = ifelse(SPSRC_total <= 403,"low", "high"),
+         SPSRC_z_group = ifelse(SPSRC_total_z<=-2," <= -2 SD",ifelse(SPSRC_total_z <= -1,"-2 to -1 SD", ">= -1 SD")),
+         tactile_z_group = ifelse(tactile_z<=-2," <= -2 SD",ifelse(tactile_z <= -1,"-2 to -1 SD", ">= -1 SD")),
+         seeking_z_group = ifelse(seeking_z<=-2," <= -2 SD",ifelse(seeking_z <= -1,"-2 to -1 SD", ">= -1 SD")),
+         tactile_group = ifelse(tactile <= 87,"low", "high"),
+         tac_over_group =ifelse(tactile_over <= 29,"low", "high"),
+         tac_under_group =ifelse(tactile_under <= 37,"low", "high"),
+         tac_seeking_group = ifelse(tactile_seek <= 19,"low", "high"),
+         seeking_group = ifelse(seeking <= 144,"low", "high"),
+         over_group = ifelse(overresponse <= 134,"low", "high"),
+         under_group = ifelse(underresponse <= 107,"low", "high"),
+         stab_group = ifelse(stability <= 24,"low", "high"))
+
+
+hbo_tot1 <- hbo_tot %>% add_column(type = "hbo")
+hbr_tot1 <- hbr_tot %>% add_column(type = "hbr")
+
+sts <- rbind(hbo_tot1,hbr_tot1) %>% 
+  group_by(id,type,group,SPSRC_group,tactile_group,tac_over_group,tac_under_group,tac_seeking_group,
+           seeking_group,over_group,under_group,stab_group,channel,time) %>%
+  summarise(con_diff = response[which(con == "forearm")] - response[which(con == "hand")]) %>% 
+  group_by(type,SPSRC_group,tactile_group,tac_over_group,tac_under_group,tac_seeking_group,
+           seeking_group,over_group,under_group,stab_group,channel,time) %>% 
+  summarise(g_diff = con_diff[which(group == 2)] - con_diff[which(group == 1)]) %>% 
+  #filter( channel == 20|channel == 23|channel == 43|channel == 46 | channel == 12| channel == 16 |channel == 39 | channel == 35) %>% 
+  filter( channel == 20|channel == 23|channel == 43|channel == 46) %>% 
+  mutate(time = time/3.47-2)
+
+mean_sts <- Rmisc::summarySE(data = sts,"g_diff",groupvars = c("time","type"),na.rm = T)
+bi <- ggplot(data = mean_sts,aes(x = time,y=g_diff,color = type))+
+  geom_line()+
+  #facet_wrap(~channel,scales = "free_y")+
+  geom_ribbon(aes(ymax = g_diff+se,ymin = g_diff-se,fill = type),alpha = 0.25,linetype=0)+
+  scale_color_discrete( aesthetics = c("color","fill"),type = brewer.pal(7, "Set1")[c(1,2)]) +
+  scale_x_continuous(breaks = c(-2,0,2,4,6,8,10,12,14,16))+
+  scale_y_continuous(breaks = seq(-0.1,0.1,0.02))+
+  #geom_rect(aes(xmax = 40/3.47-5,xmin = 33/3.47-5,ymax = -0.088,ymin = -0.09),color = "yellow",linetype=0) +
+  geom_vline(aes(xintercept = 0))+
+  geom_vline(aes(xintercept = 6))+
+  labs(title = "TD - ASD bilateral pSTS activation difference to arm vs palm",color = "Type",fill = "Type")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "none")
+
+left_sts <- sts %>% filter(channel == 20 | channel == 23)
+mean_sts <- Rmisc::summarySE(data = left_sts,"g_diff",groupvars = c("time","type"),na.rm = T)
+left <- ggplot(data = mean_sts,aes(x = time,y=g_diff,color = type))+
+  geom_line()+
+  #facet_wrap(~channel,scales = "free_y")+
+  geom_ribbon(aes(ymax = g_diff+se,ymin = g_diff-se,fill = type),alpha = 0.25,linetype=0)+
+  scale_color_discrete( aesthetics = c("color","fill"),type =  brewer.pal(7, "Set1")[c(1,2)]) +
+  scale_x_continuous(breaks = c(-2,0,2,4,6,8,10,12,14,16))+
+  scale_y_continuous(breaks = seq(-0.1,0.1,0.02))+
+  #geom_rect(aes(xmax = 40/3.47-5,xmin = 33/3.47-5,ymax = -0.088,ymin = -0.09),color = "yellow",linetype=0) +
+  geom_vline(aes(xintercept = 0))+
+  geom_vline(aes(xintercept = 6))+
+  labs(title = "TD - ASD left pSTS activation difference to arm vs palm",color = "Type",fill = "Type")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "none")
+
+right_sts <- sts %>% filter(channel == 43 | channel == 46)
+mean_sts <- Rmisc::summarySE(data = right_sts,"g_diff",groupvars = c("time","type"),na.rm = T)
+right <- ggplot(data = mean_sts,aes(x = time,y=g_diff,color = type))+
+  geom_line()+
+  #facet_wrap(~channel,scales = "free_y")+
+  geom_ribbon(aes(ymax = g_diff+se,ymin = g_diff-se,fill = type),alpha = 0.25,linetype=0)+
+  scale_color_discrete( aesthetics = c("color","fill"),type = brewer.pal(7, "Set1")[c(1,2)]) +
+  scale_x_continuous(breaks = c(-2,0,2,4,6,8,10,12,14,16))+
+  scale_y_continuous(breaks = seq(-0.1,0.1,0.02))+
+  #geom_rect(aes(xmax = 40/3.47-5,xmin = 33/3.47-5,ymax = -0.088,ymin = -0.09),color = "yellow",linetype=0) +
+  geom_vline(aes(xintercept = 0))+
+  geom_vline(aes(xintercept = 6))+
+  labs(title = "TD - ASD right pSTS activation difference to arm vs palm",color = "Type",fill = "Type")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom")
+
+bi/left/right
+
+```
+
+- Somatosensory cortex
+
+```{r echo=FALSE,message = FALSE, collapse=TRUE, results='hold'}
+
+sm <- rbind(hbo_tot1,hbr_tot1) %>% 
+  filter(channel == 13|channel == 17|channel == 14|channel ==18| channel == 21) %>% 
+  mutate(time = time/3.47-2)
+
+mean_sm <- Rmisc::summarySE(data = sm,"response",groupvars = c("time","type","tac_seeking_group"),na.rm = T)
+
+ggplot(data = mean_sm,aes(x = time,y=response,color = tac_seeking_group,linetype = type))+
+  geom_line()+
+  #facet_wrap(~channel,scales = "free_y")+
+  geom_ribbon(aes(ymax = response+se,ymin = response-se,fill = tac_seeking_group, group =     interaction(tac_seeking_group, type)),alpha = 0.25,linetype=0)+
+  #scale_color_discrete( aesthetics = c("color","fill"),type = c("#FF6666","#0099CC")) +
+  #geom_rect(aes(xmax = 40/3.47-5,xmin = 33/3.47-5,ymax = -0.088,ymin = -0.09),color = "yellow",linetype=0) +
+  geom_vline(aes(xintercept = 0))+
+  geom_vline(aes(xintercept = 6))+
+  theme_bw() +
+  facet_grid(type ~ .)
+```
