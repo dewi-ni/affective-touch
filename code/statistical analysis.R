@@ -6,8 +6,6 @@ library(ggplot2)
 library(readxl)
 
 # load data-------
-asd_beta <- read.mat("./data/ASDresult.mat")
-td_beta <- read.mat("./data/TDresult.mat")
 # group = 1 ASD
 q_total <- read_xlsx("./data/score_total.xlsx",sheet = 1,col_types = c("numeric","numeric","text","numeric","text",rep("numeric",41)))
 nirs_info <- read_xlsx("./data/nirs_information.xlsx",col_types = c("text","numeric","numeric","numeric","date","numeric","text"))
@@ -32,14 +30,14 @@ ggplot(data = q_iq_sub )+
   geom_point(aes(x = SRS, y = SPSRC_total,color = as.factor(group)))+
   theme_bw()
 q_iq_sub <- q_total %>% 
-  filter((group == 1 & (FSIQ <=143 & FSIQ >= 103)) | (group == 2 &(FSIQ <=137 & FSIQ >= 96))) %>% 
-  filter(id_new != 5 & id_new != 2416 &  id_new!= 2 & id_new!= 121 & id_new!= 128 & id_new!= 23 & id_new!= 21 & id_new != 33) %>% 
+  filter((group == 1 & (FSIQ <=143 & FSIQ >= 103)) | (group == 2 &(FSIQ <=138 & FSIQ >= 96))) %>% 
+  filter(id_new != 5 & id_new != 2416 &  id_new!= 2 & id_new!= 121 & id_new!= 128 & id_new!= 23 & id_new!= 21 & id_new != 33 & id_new!= 2401 & id_new != 39) %>% 
   # mutate(new_group = ifelse(group == 1 & (FSIQ <=136 & FSIQ >= 103),"ASD",
   #                           ifelse(group == 2 &(FSIQ <=134 & FSIQ >= 96),"TD_low",
   #                                  ifelse(group == 2 & FSIQ >134,"TD_high","other")))) %>% 
   select(id_new,group,gender,name,age,FSIQ,AQ,SRS,forearm,hand,tactile,tactile_z,
          SPSRC_total,SPSRC_total_z,seeking,seeking_z,underresponse,overresponse,stability,
-         tactile_over,tactile_under,tactile_seek) %>% 
+         tactile_over,tactile_under,tactile_seek,GEM_tot,GEM_affective,GEM_cognitive,ToM,tactile_threshold,pain_threshold) %>% 
   rename(id = id_new) %>% 
   as.data.table() %>% 
   setkey(id)
@@ -52,7 +50,8 @@ t.test(q_iq_sub$forearm[which(q_iq_sub$group==1)],q_iq_sub$forearm[which(q_iq_su
 t.test(q_iq_sub$hand[which(q_iq_sub$group==1)],q_iq_sub$hand[which(q_iq_sub$group==2)])
 mean(q_iq_sub$SPSRC_total[which(q_iq_sub$group == 1)],na.rm = T)
 nirs_info <- nirs_info %>% 
-  select(id,sub) %>% 
+  select(id,file_name) %>% 
+  rename(sub = file_name) %>% 
   as.data.table() %>% 
   setkey(id)
 q_iq_sub <- nirs_info[q_iq_sub] %>% 
@@ -81,12 +80,8 @@ hbo_sts <- hbo_tot %>%
   group_by(id,group,SPSRC_group,tactile_group,tac_over_group,tac_under_group,tac_seeking_group,
            seeking_group,over_group,under_group,stab_group,channel,time) %>%
   summarise(con_diff = response[which(con == "forearm")] - response[which(con == "hand")]) %>% 
-  filter( channel == 20|channel == 23|channel == 43|channel == 46 | channel == 12| channel == 16 |channel == 39 | channel == 35) %>% 
-  #filter( channel == 20|channel == 23|channel == 43|channel == 46) %>% 
-  #filter( channel == 20|channel == 23) %>% 
-  # group_by(id,SPSRC_group,tactile_group,tac_over_group,tac_under_group,tac_seeking_group,
-  #          seeking_group,over_group,under_group,stab_group,group,time) %>% 
-  # summarise(con_diff = mean(con_diff,na.rm = T)*1e6)%>% 
+  #filter( channel == 20|channel == 23|channel == 43|channel == 46 | channel == 12| channel == 16 |channel == 39 | channel == 35) %>% 
+  filter( channel == 20|channel == 23|channel == 43|channel == 46) %>% 
   mutate(time = time/3.47-2)
 save(hbo_sts,file = "./output/hbo_sts_sub.Rdata")
 mean_hbo_sts <- Rmisc::summarySE(data = hbo_sts,"con_diff",groupvars = c("time","group"),na.rm = T)
@@ -256,4 +251,21 @@ sd_asd <- asd1 %>% group_by(channel) %>% summarise(sd= sd(b_diff,na.rm = T))
 ggplot(data = sd_asd, mapping = aes(x = channel, y = sd))+
   geom_point()
 
+
+
+hbo_exp <- hbo_tot %>% 
+  filter(group == 1) %>% 
+  mutate(s_g = ifelse(seeking <= 150,"low","high")) %>% 
+  #filter(channel == 13|channel == 17|channel == 14|channel ==18| channel == 15) %>% 
+  #filter(channel == 13 | channel == 14) %>% 
+  filter( channel == 40|channel == 44) %>% 
+  group_by(id,SPSRC_group,tactile_group,tac_over_group,tac_under_group,tac_seeking_group,
+           seeking_group,over_group,under_group,stab_group,s_g,time) %>%
+  summarise(response = mean(response,na.rm = T)) %>% 
+  mutate(time = time/3.47-2)
+mean_hbo_sts <- Rmisc::summarySE(data = hbo_exp,"response",groupvars = c("time","s_g"),na.rm = T)
+ggplot(data = mean_hbo_sts,aes(x = time,y=response,color = as.factor(s_g)))+
+  geom_line()+
+  #facet_wrap(~channel,scales = "free_y")+
+  geom_ribbon(aes(ymax = response+se,ymin = response-se,fill = as.factor(s_g)),alpha = 0.25,linetype=0)
 
